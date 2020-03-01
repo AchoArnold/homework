@@ -2,6 +2,7 @@ package domain
 
 import (
 	"github.com/pkg/errors"
+	"github.com/AchoArnold/homework/services/validator"
 	"log"
 	"time"
 )
@@ -13,7 +14,6 @@ type DependencyContainer struct {
 	ErrorHandler     ErrorHandler
 	FromEmailAddress EmailAddress
 	ThanksEmail      Email
-	Validator        Validator
 	FetchTestTakersInterval time.Duration
 }
 
@@ -27,7 +27,7 @@ func RunApplication(container *DependencyContainer) {
 
 		sendMailToEligibleTestTakers(container, newTestTakers)
 
-		sleepDuration := container.FetchTestTakersInterval * time.Minute - time.Since(startTime)
+		sleepDuration := container.FetchTestTakersInterval - time.Since(startTime)
 
 		log.Printf("Sleping for %f minutes", sleepDuration.Minutes())
 
@@ -44,13 +44,13 @@ func fetchNewTestTakers(container *DependencyContainer) (testTakers []TestTaker)
 	return testTakers
 }
 
-func emailShouldBeSentToTestTaker(testTaker TestTaker, validator Validator) bool {
+func emailShouldBeSentToTestTaker(testTaker TestTaker) bool {
 	return testTaker.Percent >= 80 && !testTaker.IsDemo && validator.EmailIsValid(testTaker.Email)
 }
 
 func sendMailToEligibleTestTakers(container *DependencyContainer, testTakers []TestTaker) {
 	for _, testTaker := range testTakers {
-		if emailShouldBeSentToTestTaker(testTaker, container.Validator) {
+		if emailShouldBeSentToTestTaker(testTaker) {
 			testTakerEmail, err := container.Repository.FetchEmailForTestTaker(testTaker)
 			if err != nil {
 				container.ErrorHandler.HandleCriticalError(err)

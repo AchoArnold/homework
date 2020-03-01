@@ -28,15 +28,10 @@ func NewBoltRepository(dbPath string) (repository domain.Repository) {
 	if err != nil {
 		log.Fatalf("cannot open database in %s", dbPath)
 	}
-	defer func() {
-		err := db.Close()
-		if err != nil {
-			log.Printf("error closing database %s", err.Error())
-		}
-	}()
 
 	return &BoltRepository{Client: db}
 }
+
 func (repository *BoltRepository) StoreLastFinishedAt(timestamp int) (err error) {
 	err = repository.Client.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(bucketConfig))
@@ -162,7 +157,7 @@ func (repository *BoltRepository) FetchEmailForTestTaker(testTaker domain.TestTa
 		return nil, nil
 	}
 
-	err = json.JsonDecode(testTakerEmail, bytes.NewBuffer(testTakerEmailAsBytes))
+	err = json.JsonDecode(&testTakerEmail, bytes.NewBuffer(testTakerEmailAsBytes))
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot decode bytes '%s' into TestTakerEmail struct", string(testTakerEmailAsBytes))
 	}

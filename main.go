@@ -21,9 +21,7 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	dependencyContainer := makeDependencyContainer()
-
-	domain.RunApplication(dependencyContainer)
+	domain.RunApplication(makeDependencyContainer())
 }
 
 // Simplistic Dependency Resolution container.

@@ -10,7 +10,7 @@ type LogErrorHandler struct {}
 // of the application logic so they should be looked into immediately. We could configure this to send an email to the
 // SRE's on call
 func (handler LogErrorHandler) HandleCriticalError(err error) {
-	log.Fatalln(err.Error())
+	log.Panicln(err.Error())
 }
 
 func (handler LogErrorHandler) HandleError(err error) {

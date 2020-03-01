@@ -2,14 +2,12 @@ package testtaker
 
 import (
 	"bytes"
-	"context"
 	"github.com/AchoArnold/homework/domain"
 	"github.com/AchoArnold/homework/services/json"
 	"github.com/pkg/errors"
 	"math"
 	"net/http"
 	"strconv"
-	"time"
 )
 
 const contentTypeJson = "application/json"
@@ -98,22 +96,12 @@ func (testTakerService *ApiTestTakerService) GetNewTestTakers(repository domain.
 	if len(testTakersResponse.TestTakers) > 0 {
 		err := repository.StoreLastFinishedAt(testTakersResponse.TestTakers[0].FinishedAt)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not save test takers")
+			return nil, errors.Wrap(err, "could not save last finished at")
 		}
 	}
 
 	allNewTestTakersFound := false
-	for _, apiTestTaker := range testTakersResponse.TestTakers {
-		if lastFinishedAt != domain.BaseTimestamp && apiTestTaker.FinishedAt < lastFinishedAt {
-			allNewTestTakersFound = true
-			break
-		}
-
-		testTakers = append(testTakers, makeTestTakerFromApiTestTaker(apiTestTaker))
-	}
-
-
-	for i := 1; allNewTestTakersFound; i++ {
+	for i := 0; !allNewTestTakersFound; i++ {
 		testTakersResponse, err := testTakerService.getTestTakers(accessToken, apiFetchLimit, apiFetchLimit*i)
 		if err != nil {
 			errorHandler.HandleError(err)
@@ -128,7 +116,7 @@ func (testTakerService *ApiTestTakerService) GetNewTestTakers(repository domain.
 		}
 
 		// Exit the loop when all new test takers have been found
-		allNewTestTakersFound = allNewTestTakersFound || (float64(i) < math.Ceil(float64(testTakersResponse.Total)/float64(apiFetchLimit)))
+		allNewTestTakersFound = allNewTestTakersFound || !(float64(i+1) < math.Ceil(float64(testTakersResponse.Total)/float64(apiFetchLimit)))
 	}
 
 	return testTakers, nil
@@ -139,9 +127,9 @@ func makeTestTakerFromApiTestTaker(apiTestTaker ApiTestTaker) (testTaker domain.
 		ID:         apiTestTaker.ID,
 		Name:       apiTestTaker.Name,
 		Email:      apiTestTaker.Email,
-		IsDemo:     false,
-		Percent:    0,
-		FinishedAt: 0,
+		IsDemo:     apiTestTaker.IsDemo,
+		Percent:    apiTestTaker.Percent,
+		FinishedAt: apiTestTaker.FinishedAt,
 	}
 
 	if apiTestTaker.ContactInfo.FullName != "" {
@@ -186,11 +174,7 @@ func (testTakerService *ApiTestTakerService) getAccessToken() (authResponse *Aut
 }
 
 func createGetRequest(url string, params map[string]string, accessToken *AuthResponse) (*http.Request, error) {
-	// 3 seconds timeout here because the heroku may take some time to start if the dyno's are sleeping.
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	apiRequest, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	apiRequest, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot create request for URL: "+url)
 	}
@@ -214,11 +198,7 @@ func createPostRequest(url string, request interface{}) (*http.Request, error) {
 		return nil, errors.Wrapf(err, "cannot serialize request to json %#+v", request)
 	}
 
-	// 3 seconds timeout here because the heroku may take some time to start if the dyno's are sleeping.
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	apiRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(requestBytes))
+	apiRequest, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot create request for URL: "+url)
 	}
