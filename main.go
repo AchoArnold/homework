@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/go-errors/errors"
 	"github.com/joho/godotenv"
+	"github.com/pkg/errors"
 	"io"
 	"log"
 	"math"
@@ -49,27 +49,27 @@ type AuthRequest struct {
 
 type Error struct {
 	Err          error
-	Message string
+	//Message string
 	ApiErrorCode string
 	isApiError   bool
 }
 
 func (err *Error) Error() string {
-	return err.Message
+	return err.Err.Error()
 }
 
 func NewError(currentError error, message string) error {
 	return &Error{
-		Err:        currentError,
-		Message:    strings.Join([]string{message, currentError.Error()}, "\n"),
+		Err:        errors.Wrap(currentError, message),
+		//Message:    strings.Join([]string{message, currentError.Error()}, "\n"),
 		isApiError: false,
 	}
 }
 
 func NewApiError(message string, errorCode string) error {
 	return &Error{
-		Err:          errors.New("Api Error"),
-		Message:      strings.Join([]string{message, "Api Error"}, "\n"),
+		Err:          errors.Wrap(errors.New(errorCode), message),
+		//Message:      strings.Join([]string{message, errorCode}, "\n"),
 		ApiErrorCode: errorCode,
 		isApiError:   true,
 	}
