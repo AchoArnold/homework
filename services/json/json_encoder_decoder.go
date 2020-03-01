@@ -15,8 +15,7 @@ func JsonEncode(itemToEncode interface{}) ([]byte, error) {
 	return encodedObject, nil
 }
 
-
-func JsonDecode(variable *interface{}, reader io.Reader) error {
+func JsonDecode(variable interface{}, reader io.Reader) error {
 	decoder := json.NewDecoder(reader)
 	err := decoder.Decode(variable)
 	if err != nil {

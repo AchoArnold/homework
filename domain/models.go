@@ -7,7 +7,7 @@ type EmailAddress struct {
 
 type TestTakerEmail struct {
 	TestTakerId int
-	Email string
+	Email       string
 }
 
 type Email struct {
@@ -16,10 +16,10 @@ type Email struct {
 }
 
 type TestTaker struct {
-	ID                    int
-	Name                  string
-	Email                 string
-	IsDemo                bool
-	Percent               int
-	FinishedAt            int
+	ID         int
+	Name       string
+	Email      string
+	IsDemo     bool
+	Percent    int
+	FinishedAt int
 }

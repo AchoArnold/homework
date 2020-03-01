@@ -5,7 +5,7 @@ type Sender interface {
 }
 
 type TestTakerService interface {
-	GetNewTestTakers() (newTestTakers []*TestTaker, err error)
+	GetNewTestTakers(repository Repository, errorHandler ErrorHandler) (testTakers []TestTaker, err error)
 }
 
 type Repository interface {
@@ -16,7 +16,11 @@ type Repository interface {
 	FetchEmailForTestTaker(testTaker TestTaker) (testTakerEmail *TestTakerEmail, err error)
 }
 
-
 type ErrorHandler interface {
+	HandleCriticalError(err error)
 	HandleError(err error)
+}
+
+type Validator interface {
+	EmailIsValid(email string) bool
 }

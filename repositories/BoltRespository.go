@@ -2,11 +2,13 @@ package repositories
 
 import (
 	"bytes"
+	"fmt"
+	"github.com/AchoArnold/homework/domain"
+	"github.com/AchoArnold/homework/services/json"
+	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 	"log"
 	"strconv"
-	"github.com/pkg/errors"
-	"fmt"
 )
 
 type BoltRepository struct {
@@ -14,13 +16,14 @@ type BoltRepository struct {
 }
 
 const (
-	bucketLastFinishedAt = "last_finished_at"
-	bucketConfig = "config"
+	bucketConfig                = "config"
 	bucketFailedTestTakerEmails = "failed_test_taker_emails"
-	bucketTestTakerEmail = "test_taker_email"
+	bucketTestTakerEmail        = "test_taker_email"
+
+	keyLastFinishedAt = "last_finished_at"
 )
 
-func NewBoltRepository(dbPath string) (repository *BoltRepository) {
+func NewBoltRepository(dbPath string) (repository domain.Repository) {
 	db, err := bolt.Open(dbPath, 0666, nil)
 	if err != nil {
 		log.Fatalf("cannot open database in %s", dbPath)
@@ -36,7 +39,7 @@ func NewBoltRepository(dbPath string) (repository *BoltRepository) {
 }
 func (repository *BoltRepository) StoreLastFinishedAt(timestamp int) (err error) {
 	err = repository.Client.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte("config"))
+		bucket, err := tx.CreateBucketIfNotExists([]byte(bucketConfig))
 		if err == nil {
 			return err
 		}
@@ -45,7 +48,7 @@ func (repository *BoltRepository) StoreLastFinishedAt(timestamp int) (err error)
 			return errors.New("config bucket does not exist")
 		}
 
-		err = bucket.Put([]byte("last_finished_at"), []byte(strconv.Itoa(timestamp)))
+		err = bucket.Put([]byte(keyLastFinishedAt), []byte(strconv.Itoa(timestamp)))
 		if err != nil {
 			return err
 		}
@@ -54,7 +57,7 @@ func (repository *BoltRepository) StoreLastFinishedAt(timestamp int) (err error)
 	})
 
 	if err != nil {
-		return errors.Wrap(err,"could not store last finished at")
+		return errors.Wrap(err, "could not store last finished at")
 	}
 
 	return nil
@@ -63,12 +66,12 @@ func (repository *BoltRepository) StoreLastFinishedAt(timestamp int) (err error)
 func (repository *BoltRepository) FetchLastFinishedAt() (timestamp int, err error) {
 	var dbData []byte
 	err = repository.Client.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte("config"))
+		bucket := tx.Bucket([]byte(bucketConfig))
 		if bucket == nil {
 			return errors.New("config bucket does not exist")
 		}
 
-		dbData = bucket.Get([]byte("last_finished_at"))
+		dbData = bucket.Get([]byte(keyLastFinishedAt))
 		if dbData == nil {
 			return errors.New("invalid data in bucket")
 		}
@@ -77,28 +80,27 @@ func (repository *BoltRepository) FetchLastFinishedAt() (timestamp int, err erro
 	})
 
 	if err != nil {
-		return -1, nil
+		return domain.BaseTimestamp, nil
 	}
 
 	timestamp, err = strconv.Atoi(string(dbData))
 	if err != nil {
-		return -1, errors.Wrap(err, fmt.Sprintf("Could not convert bytes %s into int", string(dbData)))
+		return domain.BaseTimestamp, errors.Wrapf(err, "could not convert bytes %s into int", string(dbData))
 	}
 
-	return timestamp,nil
+	return timestamp, nil
 }
 
-
-func (repository *BoltRepository) StoreFailedTestTakerEmails(email TestTakerEmail) (err error) {
-	err := repository.Client.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte("failed_test_taker_emails"))
+func (repository *BoltRepository) StoreFailedTestTakerEmail(email domain.TestTakerEmail) (err error) {
+	err = repository.Client.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists([]byte(bucketFailedTestTakerEmails))
 		if err != nil {
 			return errors.Wrap(err, "Cannot create bucket 'failed_test_taker_emails'")
 		}
 
-		testTakerEmailAsBytes, err := JsonEncode(email)
+		testTakerEmailAsBytes, err := json.JsonEncode(email)
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("could not marshal test email email %v", email))
+			return errors.Wrap(err, fmt.Sprintf("could not marshal test email email %#+v", email))
 		}
 
 		err = bucket.Put([]byte(strconv.Itoa(email.TestTakerId)), testTakerEmailAsBytes)
@@ -116,22 +118,21 @@ func (repository *BoltRepository) StoreFailedTestTakerEmails(email TestTakerEmai
 	return nil
 }
 
-func (repository *BoltRepository) StoreTestTakerEmail(email TestTakerEmail) (err error) {
-	err := repository.Client.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte("test_taker_email"))
+func (repository *BoltRepository) StoreTestTakerEmail(email domain.TestTakerEmail) (err error) {
+	err = repository.Client.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists([]byte(bucketTestTakerEmail))
 		if err != nil {
 			return errors.Wrap(err, "Cannot create bucket 'test_taker_email'")
 		}
 
-		testTakerEmailAsBytes, err := JsonEncode(email)
+		testTakerEmailAsBytes, err := json.JsonEncode(email)
 		if err != nil {
-			log.Println(err.Error())
-			return errors.Wrap(err, fmt.Sprintf("could not marshal test email email %v", email))
+			return errors.Wrapf(err, "could not marshal test email email %v", email)
 		}
 
 		err = bucket.Put([]byte(strconv.Itoa(email.TestTakerId)), testTakerEmailAsBytes)
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("could not save test email with ID %d", email.TestTakerId))
+			return errors.Wrapf(err, "could not save test email with ID %d", email.TestTakerId)
 		}
 
 		return nil
@@ -144,11 +145,11 @@ func (repository *BoltRepository) StoreTestTakerEmail(email TestTakerEmail) (err
 	return nil
 }
 
-func (repository *BoltRepository) FetchEmailForTestTaker(testTaker TestTaker) (testTakerEmail *TestTakerEmail, err error) {
+func (repository *BoltRepository) FetchEmailForTestTaker(testTaker domain.TestTaker) (testTakerEmail *domain.TestTakerEmail, err error) {
 	var testTakerEmailAsBytes []byte
 
 	_ = repository.Client.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte("test_taker_email"))
+		bucket := tx.Bucket([]byte(bucketTestTakerEmail))
 		if bucket == nil {
 			return nil
 		}
@@ -158,14 +159,13 @@ func (repository *BoltRepository) FetchEmailForTestTaker(testTaker TestTaker) (t
 	})
 
 	if testTakerEmailAsBytes == nil {
-		return nil,nil
+		return nil, nil
 	}
 
-	var testTakerEmail TestTakerEmail
-	err := decodeJSON(&testTakerEmail, bytes.NewBuffer(testTakerEmailAsBytes))
+	err = json.JsonDecode(testTakerEmail, bytes.NewBuffer(testTakerEmailAsBytes))
 	if err != nil {
-		return nil, NewError(err, fmt.Sprintf("cannot unmartial bytes '%s' into TestTakerEmail struct", string(testTakerEmailAsBytes)))
+		return nil, errors.Wrapf(err, "cannot decode bytes '%s' into TestTakerEmail struct", string(testTakerEmailAsBytes))
 	}
 
-	return &testTakerEmail, nil
+	return testTakerEmail, nil
 }
